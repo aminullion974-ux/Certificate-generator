@@ -353,7 +353,7 @@
       <button class="main print-btn" onclick="window.print()">🖨️ সরাসরি প্রিন্ট</button>
     </div>
     <div class="status" id="status"></div>
-    <p class="hint">ছবি ডাউনলোড সর্বোচ্চ ২ MB এর মধ্যে থাকবে। বিদ্যালয়ের তথ্য ও লোগো শুধু এই ব্রাউজারেই সংরক্ষিত থাকে — অন্য ডিভাইস/ব্রাউজারে খুললে আবার দিতে হবে।<br><br><button class="resetlink" onclick="resetSavedSchoolData()">বিদ্যালয়ের সংরক্ষিত সব তথ্য মুছে ফেলুন</button></p>
+    <p class="hint">শিক্ষার্থীর গ্রাম/ডাকঘর/উপজেলা/জেলা বিদ্যালয়ের ঠিকানা থেকে স্বয়ংক্রিয়ভাবে বসে যাবে (প্রয়োজনে বদলে নিতে পারবেন); ইউনিয়ন প্রথমবার যা লিখবেন পরেরবার সেটাই ডিফল্ট থাকবে। ছবি ডাউনলোড সর্বোচ্চ ২ MB এর মধ্যে থাকবে। বিদ্যালয়ের তথ্য ও লোগো শুধু এই ব্রাউজারেই সংরক্ষিত থাকে — অন্য ডিভাইস/ব্রাউজারে খুললে আবার দিতে হবে।<br><br><button class="resetlink" onclick="resetSavedSchoolData()">বিদ্যালয়ের সংরক্ষিত সব তথ্য মুছে ফেলুন</button></p>
   </div>
 
   <!-- ===================== CERTIFICATE PREVIEW ===================== -->
@@ -469,12 +469,15 @@ function saveHeadName(){
   try{ localStorage.setItem(LS.headName, $("headName").value); flashSaveNote("headSaveNote"); }catch(e){}
 }
 function resetSavedSchoolData(){
-  if(!confirm("বিদ্যালয়ের সংরক্ষিত সব তথ্য (নাম, ঠিকানা, লোগো) মুছে ফেলা হবে। নিশ্চিত?")) return;
+  if(!confirm("বিদ্যালয়ের সংরক্ষিত সব তথ্য (নাম, ঠিকানা, লোগো, ইউনিয়ন) মুছে ফেলা হবে। নিশ্চিত?")) return;
   Object.values(LS).forEach(k => localStorage.removeItem(k));
+  try{ localStorage.removeItem(LS_UNION); }catch(e){}
   schoolFieldIds.forEach(id => $(id).value = "");
   $("headName").value = "";
   schoolLogoData = null;
   $("schoolLogoFile").value = "";
+  syncSchoolAddressToStudent();
+  $("stUnion").value = "";
   render();
 }
 
@@ -635,7 +638,31 @@ function render(){
   $("sigSpace").innerHTML = "";
 }
 
-schoolFieldIds.forEach(id => $(id).addEventListener("input", () => { saveSchoolInfo(); render(); }));
+/* ===================== SCHOOL -> STUDENT ADDRESS AUTO-FILL ===================== */
+const addrPairs = [["schoolVillage","stVillage"], ["schoolPost","stPost"], ["schoolUpazila","stUpazila"], ["schoolDistrict","stDistrict"]];
+function syncSchoolAddressToStudent(){
+  addrPairs.forEach(([schoolId, studentId]) => {
+    $(studentId).value = $(schoolId).value;
+  });
+}
+
+/* ===================== UNION — REMEMBER LAST VALUE ===================== */
+const LS_UNION = "certgen_stUnion_v1";
+function loadUnion(){
+  try{
+    const saved = localStorage.getItem(LS_UNION);
+    if(saved) $("stUnion").value = saved;
+  }catch(e){}
+}
+$("stUnion").addEventListener("input", () => {
+  try{ localStorage.setItem(LS_UNION, $("stUnion").value); }catch(e){}
+});
+
+schoolFieldIds.forEach(id => $(id).addEventListener("input", () => {
+  saveSchoolInfo();
+  if(addrPairs.some(([schoolId]) => schoolId === id)) syncSchoolAddressToStudent();
+  render();
+}));
 $("headName").addEventListener("input", () => { saveHeadName(); render(); });
 studentFields.forEach(id => { $(id).addEventListener("input", render); $(id).addEventListener("change", render); });
 
@@ -815,6 +842,8 @@ async function downloadPDF(){
 
 /* ===================== INIT ===================== */
 loadSchoolInfo();
+syncSchoolAddressToStudent();
+loadUnion();
 $("issueDate").valueAsDate = new Date();
 render();
 </script>
